@@ -4,7 +4,7 @@ from firebase_admin import credentials, db
 import os
 import time
 
-# Load Firebase credentials from environment variables for secure deployment
+# Initialize Firebase with env vars
 firebase_config = {
     "type": os.getenv("FIREBASE_TYPE"),
     "project_id": os.getenv("FIREBASE_PROJECT_ID"),
@@ -18,24 +18,35 @@ firebase_config = {
     "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_X509_CERT_URL"),
 }
 
-# Initialize Firebase app (singleton)
 if not firebase_admin._apps:
     cred = credentials.Certificate(firebase_config)
     firebase_admin.initialize_app(cred, {
         'databaseURL': os.getenv("FIREBASE_DATABASE_URL")
     })
 
-# Firebase references
 tourists_ref = db.reference('tourists')
 alerts_ref = db.reference('alerts')
 
-st.title("Tourist Safety App - Streamlit Prototype")
+st.set_page_config(page_title="Tourist Safety App", layout="wide")
 
-user_id = st.text_input("Enter User ID:", value="user1")
+st.title("🧭 Tourist Safety App Prototype")
 
-# Set default lat/lng to New Delhi, India
-lat = st.number_input("Latitude", value=28.6139, format="%.7f")  # New Delhi latitude
-lng = st.number_input("Longitude", value=77.2090, format="%.7f") # New Delhi longitude
+with st.sidebar:
+    st.header("User Info & Uploads")
+    user_id = st.text_input("Enter User ID:", value="user1")
+    lat = st.number_input("Latitude", value=28.6139, format="%.7f")  # default New Delhi
+    lng = st.number_input("Longitude", value=77.2090, format="%.7f") # default New Delhi
+    st.markdown("---")
+    st.subheader("Upload User Documents")
+    uploaded_files = st.file_uploader("Choose files", accept_multiple_files=True, type=['pdf','png','jpg','jpeg'])
+    uploaded_file_names = []
+    if uploaded_files:
+        for uploaded_file in uploaded_files:
+            save_path = f"/tmp/{user_id}_{uploaded_file.name}"
+            with open(save_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            uploaded_file_names.append(uploaded_file.name)
+    st.markdown("---")
 
 def update_location(user, lat, lng):
     tourists_ref.child(user).child('location').set({
@@ -58,17 +69,23 @@ def get_data():
     alerts = alerts_ref.get() or {}
     return tourists, alerts
 
-if st.button("Update Location"):
-    update_location(user_id, lat, lng)
-    st.success(f"Location updated for {user_id}: ({lat}, {lng})")
+col1, col2 = st.columns(2)
 
-if st.button("Send SOS"):
-    send_sos(user_id, lat, lng)
-    st.error("SOS Alert Sent!")
+with col1:
+    if st.button("🚩 Update Location"):
+        update_location(user_id, lat, lng)
+        st.success(f"Location updated for {user_id}: ({lat}, {lng})")
 
-st.subheader("Tourists Current Locations")
-tourist_locations = []
+with col2:
+    if st.button("🚨 Send SOS Alert"):
+        send_sos(user_id, lat, lng)
+        st.error("SOS Alert Sent!")
+
+st.markdown("---")
+
+st.subheader("🌍 Current Tourist Locations")
 tourists, alerts = get_data()
+tourist_locations = []
 for user, data in tourists.items():
     loc = data.get('location')
     if loc:
@@ -77,15 +94,23 @@ for user, data in tourists.items():
 if tourist_locations:
     st.map(tourist_locations)
 else:
-    st.write("No location data available yet.")
+    st.info("No location data available yet.")
 
-st.subheader("Recent SOS Alerts")
+st.subheader("⚠️ Recent SOS Alerts")
 if alerts:
     alert_list = []
     for alert_key, alert_data in list(alerts.items())[-5:]:
-        text = f"User: {alert_data['user']}, Location: ({alert_data['lat']:.5f}, {alert_data['lng']:.5f})"
-        alert_list.append(text)
+        alert_list.append(
+            f"User: {alert_data['user']}, Location: ({alert_data['lat']:.5f}, {alert_data['lng']:.5f})"
+        )
     for alert_text in alert_list:
         st.warning(alert_text)
 else:
-    st.write("No alerts")
+    st.info("No alerts")
+
+if uploaded_file_names:
+    st.subheader("📄 Uploaded User Documents")
+    for fname in uploaded_file_names:
+        st.write(f"- {fname}")
+else:
+    st.info("No documents uploaded.")
