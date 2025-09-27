@@ -33,8 +33,9 @@ st.title("Tourist Safety App - Streamlit Prototype")
 
 user_id = st.text_input("Enter User ID:", value="user1")
 
-lat = st.number_input("Latitude", value=37.4219999, format="%.7f")
-lng = st.number_input("Longitude", value=-122.0840575, format="%.7f")
+# Set default lat/lng to New Delhi, India
+lat = st.number_input("Latitude", value=28.6139, format="%.7f")  # New Delhi latitude
+lng = st.number_input("Longitude", value=77.2090, format="%.7f") # New Delhi longitude
 
 def update_location(user, lat, lng):
     tourists_ref.child(user).child('location').set({
